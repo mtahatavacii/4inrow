@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect 4 - Modern Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                transform: translate(0, -10px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--tx), 100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        .confetti.red {
+            background: linear-gradient(135deg, #ff6b9d, #c44569);
+            animation: confetti-fall 3s ease-in forwards;
+        }
+
+        .confetti.yellow {
+            background: linear-gradient(135deg, #ffa502, #ffb84d);
+            animation: confetti-fall 3s ease-in forwards;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 550px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: slideDown 0.6s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        h1 {
+            font-size: 3.5em;
+            background: linear-gradient(135deg, #ff6b9d, #c44569, #ffa502);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 900;
+            margin-bottom: 10px;
+            letter-spacing: -2px;
+        }
+
+        .subtitle {
+            color: #a0aec0;
+            font-size: 0.95em;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .game-area {
+            animation: slideUp 0.6s ease-out 0.1s both;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status-bar {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .status-text {
+            color: #e2e8f0;
+            font-size: 1.1em;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+
+        .status-text.winner {
+            font-size: 1.5em;
+            font-weight: 700;
+            animation: winnerPulse 0.6s ease-out;
+        }
+
+        @keyframes winnerPulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .player-turn {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .player-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e0;
+            font-size: 0.95em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .player-badge.active {
+            background: rgba(255, 107, 157, 0.2);
+            border-color: rgba(255, 107, 157, 0.5);
+            color: #ff6b9d;
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+        }
+
+        .player-badge.winner {
+            background: rgba(255, 107, 157, 0.4);
+            border-color: rgba(255, 107, 157, 0.8);
+            color: #ff6b9d;
+            box-shadow: 0 0 30px rgba(255, 107, 157, 0.6), inset 0 0 30px rgba(255, 107, 157, 0.2);
+            animation: winnerBadge 0.6s ease-out;
+        }
+
+        .player-badge.winner.yellow {
+            background: rgba(255, 165, 2, 0.4);
+            border-color: rgba(255, 165, 2, 0.8);
+            color: #ffa502;
+            box-shadow: 0 0 30px rgba(255, 165, 2, 0.6), inset 0 0 30px rgba(255, 165, 2, 0.2);
+        }
+
+        @keyframes winnerBadge {
+            0% {
+                transform: scale(0.9) rotateZ(-5deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.15) rotateZ(5deg);
+            }
+            100% {
+                transform: scale(1) rotateZ(0deg);
+                opacity: 1;
+            }
+        }
+
+        .player-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .circle-red {
+            background: linear-gradient(135deg, #ff6b9d, #c44569);
+        }
+
+        .circle-yellow {
+            background: linear-gradient(135deg, #ffa502, #ffb84d);
+        }
+
+        .board-container {
+            background: rgba(15, 12, 41, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 25px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            position: relative;
+            perspective: 1000px;
+            transition: all 0.3s ease;
+        }
+
+        .board-container.game-over {
+            background: rgba(15, 12, 41, 0.9);
+            border-color: rgba(255, 107, 157, 0.5);
+            box-shadow: 0 0 40px rgba(255, 107, 157, 0.3), 0 25px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            background: rgba(48, 43, 99, 0.3);
+            padding: 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: visible;
+        }
+
+        .cell::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .cell:hover::before {
+            width: 120%;
+            height: 120%;
+        }
+
+        .cell:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: scale(1.08);
+        }
+
+        .cell.winning-piece {
+            animation: winningPulse 0.6s ease-out 0.3s;
+        }
+
+        @keyframes winningPulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 0px rgba(255, 255, 255, 0));
+            }
+            50% {
+                transform: scale(1.15);
+                filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.8));
+            }
+        }
+
+        .piece-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .piece {
+            width: 80%;
+            height: 80%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 2;
+            position: relative;
+        }
+
+        .piece.red {
+            background: linear-gradient(135deg, #ff6b9d, #c44569);
+        }
+
+        .piece.yellow {
+            background: linear-gradient(135deg, #ffa502, #ffb84d);
+        }
+
+        .piece.falling {
+            animation: fallAndBounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes fallAndBounce {
+            0% {
+                transform: translateY(-450px) scale(0.8);
+                opacity: 0;
+            }
+            70% {
+                transform: translateY(0) scale(1.1);
+                opacity: 1;
+            }
+            80% {
+                transform: translateY(-8px) scale(0.95);
+            }
+            90% {
+                transform: translateY(2px) scale(1.02);
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .glow-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            opacity: 0;
+        }
+
+        .piece.falling.red .glow-effect {
+            background: radial-gradient(circle, rgba(255, 107, 157, 0.6), transparent);
+            animation: glow-pulse-red 0.8s ease-out;
+        }
+
+        .piece.falling.yellow .glow-effect {
+            background: radial-gradient(circle, rgba(255, 165, 2, 0.6), transparent);
+            animation: glow-pulse-yellow 0.8s ease-out;
+        }
+
+        @keyframes glow-pulse-red {
+            0% {
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+            }
+            50% {
+                width: 150%;
+                height: 150%;
+                opacity: 0.8;
+            }
+            100% {
+                width: 200%;
+                height: 200%;
+                opacity: 0;
+            }
+        }
+
+        @keyframes glow-pulse-yellow {
+            0% {
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+            }
+            50% {
+                width: 150%;
+                height: 150%;
+                opacity: 0.8;
+            }
+            100% {
+                width: 200%;
+                height: 200%;
+                opacity: 0;
+            }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 16px 24px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left 0.3s ease;
+            z-index: 1;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button span {
+            position: relative;
+            z-index: 2;
+        }
+
+        .btn-new {
+            background: linear-gradient(135deg, #ff6b9d, #c44569);
+            box-shadow: 0 10px 30px rgba(255, 107, 157, 0.3);
+        }
+
+        .btn-new:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(255, 107, 157, 0.5);
+        }
+
+        .btn-new:active {
+            transform: translateY(-1px);
+        }
+
+        .btn-undo {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-undo:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-undo:active:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn-undo:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            gap: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #a0aec0;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            color: #e2e8f0;
+            font-size: 1.5em;
+            font-weight: 700;
+        }
+
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2.5em;
+            }
+
+            .subtitle {
+                font-size: 0.85em;
+            }
+
+            .board {
+                gap: 7px;
+                padding: 10px;
+            }
+
+            .cell {
+                border-width: 1.5px;
+            }
+
+            button {
+                padding: 14px 20px;
+                font-size: 0.9em;
+                letter-spacing: 0.5px;
+            }
+
+            .status-bar {
+                padding: 20px;
+            }
+
+            .stats {
+                padding: 15px;
+            }
+
+            .player-badge {
+                padding: 6px 12px;
+                font-size: 0.85em;
+            }
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .board-container {
+                padding: 15px;
+            }
+
+            .board {
+                gap: 6px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>4 IN ROW</h1>
+            <p class="subtitle">Modern Game Experience</p>
+        </div>
+
+        <div class="game-area">
+            <div class="status-bar">
+                <div class="status-text" id="status">Kırmızı Oyuncu Başlıyor!</div>
+                <div class="player-turn">
+                    <div class="player-badge" id="redBadge">
+                        <div class="player-circle circle-red"></div>
+                        <span>Kırmızı</span>
+                    </div>
+                    <span style="color: #64748b;">vs</span>
+                    <div class="player-badge" id="yellowBadge">
+                        <div class="player-circle circle-yellow"></div>
+                        <span>Sarı</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="board-container" id="boardContainer">
+                <div class="board" id="board"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-new" onclick="game.newGame()">
+                    <span>🔄 Yeni Oyun</span>
+                </button>
+                <button class="btn-undo" id="undoBtn" onclick="game.undo()" disabled>
+                    <span>↶ Geri Al</span>
+                </button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-label">Hamle</div>
+                    <div class="stat-value" id="moveCount">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Durum</div>
+                    <div class="stat-value" id="gameStatus">Devam</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Sıra</div>
+                    <div class="stat-value" id="currentTurn">1</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Arka plan yıldızları oluştur
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < 50; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+
+        createStars();
+
+        // Konfeti animasyonu
+        function createConfetti(playerColor) {
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = `confetti ${playerColor}`;
+                confetti.style.left = Math.random() * 100 + '%';
+                confetti.style.top = '0px';
+                const tx = (Math.random() - 0.5) * 200;
+                confetti.style.setProperty('--tx', tx + 'px');
+                confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                document.body.appendChild(confetti);
+
+                setTimeout(() => confetti.remove(), 3500);
+            }
+        }
+
+        class Connect4 {
+            constructor() {
+                this.rows = 6;
+                this.cols = 7;
+                this.board = [];
+                this.history = [];
+                this.currentPlayer = 'red';
+                this.gameOver = false;
+                this.moveCount = 0;
+                this.lastRow = -1;
+                this.lastCol = -1;
+                this.winningPieces = [];
+                this.init();
+            }
+
+            init() {
+                this.board = Array(this.rows).fill(null).map(() => Array(this.cols).fill(null));
+                this.history = [];
+                this.currentPlayer = 'red';
+                this.gameOver = false;
+                this.moveCount = 0;
+                this.lastRow = -1;
+                this.lastCol = -1;
+                this.winningPieces = [];
+                this.updateUI();
+            }
+
+            newGame() {
+                this.init();
+            }
+
+            makeMove(col) {
+                if (this.gameOver || col < 0 || col >= this.cols) return;
+
+                for (let row = this.rows - 1; row >= 0; row--) {
+                    if (this.board[row][col] === null) {
+                        this.history.push({
+                            board: this.board.map(r => [...r]),
+                            currentPlayer: this.currentPlayer,
+                            gameOver: this.gameOver,
+                            moveCount: this.moveCount,
+                            winningPieces: [...this.winningPieces]
+                        });
+
+                        this.board[row][col] = this.currentPlayer;
+                        this.moveCount++;
+                        this.lastRow = row;
+                        this.lastCol = col;
+
+                        // Tahtayı güncelle ve animasyonu tetikle
+                        this.renderBoard();
+
+                        if (this.checkWinner(row, col)) {
+                            this.gameOver = true;
+                            setTimeout(() => {
+                                this.showWinnerAnimation();
+                                this.updateUI();
+                            }, 300);
+                            return;
+                        }
+
+                        if (this.checkDraw()) {
+                            this.gameOver = true;
+                            setTimeout(() => this.updateUI(), 100);
+                            this.showDraw();
+                            return;
+                        }
+
+                        this.currentPlayer = this.currentPlayer === 'red' ? 'yellow' : 'red';
+                        setTimeout(() => this.updateUI(), 100);
+                        return;
+                    }
+                }
+            }
+
+            checkWinner(row, col) {
+                const player = this.board[row][col];
+                const directions = [[0, 1], [1, 0], [1, 1], [1, -1]];
+                this.winningPieces = [];
+
+                for (let [dr, dc] of directions) {
+                    let pieces = [[row, col]];
+                    
+                    for (let i = 1; i < 4; i++) {
+                        const r = row + dr * i;
+                        const c = col + dc * i;
+                        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols && this.board[r][c] === player) {
+                            pieces.push([r, c]);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    for (let i = 1; i < 4; i++) {
+                        const r = row - dr * i;
+                        const c = col - dc * i;
+                        if (r >= 0 && r < this.rows && c >= 0 && c < this.cols && this.board[r][c] === player) {
+                            pieces.push([r, c]);
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if (pieces.length >= 4) {
+                        this.winningPieces = pieces;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            checkDraw() {
+                return this.board[0].every(cell => cell !== null);
+            }
+
+            undo() {
+                if (this.history.length === 0) return;
+
+                const previous = this.history.pop();
+                this.board = previous.board.map(r => [...r]);
+                this.currentPlayer = previous.currentPlayer;
+                this.gameOver = previous.gameOver;
+                this.moveCount = previous.moveCount;
+                this.winningPieces = previous.winningPieces;
+                this.lastRow = -1;
+                this.lastCol = -1;
+
+                this.updateUI();
+            }
+
+            updateUI() {
+                this.renderBoard();
+                this.updateStatus();
+                this.updatePlayerIndicators();
+                this.updateUndoButton();
+                this.updateStats();
+                this.updateBoardContainer();
+            }
+
+            renderBoard() {
+                const boardElement = document.getElementById('board');
+                boardElement.innerHTML = '';
+
+                for (let row = 0; row < this.rows; row++) {
+                    for (let col = 0; col < this.cols; col++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.onclick = () => this.makeMove(col);
+
+                        const piece = this.board[row][col];
+                        if (piece) {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'piece-wrapper';
+                            
+                            const pieceDiv = document.createElement('div');
+                            pieceDiv.className = `piece ${piece}`;
+                            
+                            // Sadece son atılan topa animasyon ekle
+                            if (row === this.lastRow && col === this.lastCol) {
+                                pieceDiv.classList.add('falling');
+                            }
+
+                            // Kazanan topları işaretle
+                            if (this.winningPieces.some(([r, c]) => r === row && c === col)) {
+                                cell.classList.add('winning-piece');
+                            }
+                            
+                            // Glow efekti ekle
+                            const glow = document.createElement('div');
+                            glow.className = 'glow-effect';
+                            pieceDiv.appendChild(glow);
+                            
+                            wrapper.appendChild(pieceDiv);
+                            cell.appendChild(wrapper);
+                        }
+
+                        boardElement.appendChild(cell);
+                    }
+                }
+            }
+
+            updateStatus() {
+                const statusElement = document.getElementById('status');
+                if (this.gameOver) {
+                    if (this.checkDraw()) {
+                        statusElement.textContent = '🤝 Berabere! Oyun Sona Erdi';
+                    } else {
+                        const playerName = this.currentPlayer === 'red' ? '🔴 Kırmızı' : '🟡 Sarı';
+                        statusElement.innerHTML = `🎉 ${playerName} <strong>KAZANDI!</strong> 🎉`;
+                        statusElement.classList.add('winner');
+                    }
+                } else {
+                    statusElement.classList.remove('winner');
+                    const playerName = this.currentPlayer === 'red' ? '🔴 Kırmızı Sırası' : '🟡 Sarı Sırası';
+                    statusElement.textContent = playerName;
+                }
+            }
+
+            updatePlayerIndicators() {
+                const redBadge = document.getElementById('redBadge');
+                const yellowBadge = document.getElementById('yellowBadge');
+
+                redBadge.classList.remove('active', 'winner');
+                yellowBadge.classList.remove('active', 'winner');
+
+                if (!this.gameOver) {
+                    if (this.currentPlayer === 'red') {
+                        redBadge.classList.add('active');
+                    } else {
+                        yellowBadge.classList.add('active');
+                    }
+                } else if (!this.checkDraw()) {
+                    if (this.currentPlayer === 'red') {
+                        redBadge.classList.add('winner');
+                    } else {
+                        yellowBadge.classList.add('winner');
+                    }
+                }
+            }
+
+            updateBoardContainer() {
+                const boardContainer = document.getElementById('boardContainer');
+                if (this.gameOver && !this.checkDraw()) {
+                    boardContainer.classList.add('game-over');
+                } else {
+                    boardContainer.classList.remove('game-over');
+                }
+            }
+
+            updateUndoButton() {
+                const undoBtn = document.getElementById('undoBtn');
+                undoBtn.disabled = this.history.length === 0;
+            }
+
+            updateStats() {
+                document.getElementById('moveCount').textContent = this.moveCount;
+                document.getElementById('currentTurn').textContent = Math.floor(this.moveCount / 2) + 1;
+                
+                let statusText = 'Devam';
+                if (this.gameOver) {
+                    statusText = this.checkDraw() ? 'Berabere' : 'Bitti';
+                }
+                document.getElementById('gameStatus').textContent = statusText;
+            }
+
+            showWinnerAnimation() {
+                const playerColor = this.currentPlayer === 'red' ? 'red' : 'yellow';
+                createConfetti(playerColor);
+            }
+
+            showDraw() {
+                const statusElement = document.getElementById('status');
+                statusElement.textContent = '🤝 Berabere! Oyun Sona Erdi';
+            }
+        }
+
+        const game = new Connect4();
+    </script>
+</body>
+</html>
